@@ -41,6 +41,7 @@
 static char *__request_state[] = {
 	"IDLE",
 	"QUEUED",
+	"DELETED"
 };
 
 #define request_state(i)			\
@@ -168,12 +169,22 @@ out_ida_simple_remove:
 	return ret;
 }
 
-static void media_device_request_delete(struct media_device *mdev,
-				       struct media_device_request *req)
+static int media_device_request_delete(struct media_device *mdev,
+			struct media_device_request *req)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&mdev->req_lock, flags);
+
+	if (req->state != MEDIA_DEVICE_REQUEST_STATE_IDLE) {
+		spin_unlock_irqrestore(&mdev->req_lock, flags);
+		dev_dbg(mdev->dev, "request: can't delete %u, state %s\n",
+			req->id, request_state(req->state));
+		return -EINVAL;
+	}
+
+	req->state = MEDIA_DEVICE_REQUEST_STATE_DELETED;
+
 	if (req->filp) {
 		/*
 		 * If the file handle is gone by now the
@@ -188,6 +199,8 @@ static void media_device_request_delete(struct media_device *mdev,
 	spin_unlock_irqrestore(&mdev->req_lock, flags);
 
 	media_device_request_put(req);
+
+	return 0;
 }
 
 static int media_device_request_queue_apply(
@@ -253,8 +266,7 @@ static long media_device_request_cmd(struct media_device *mdev,
 		break;
 
 	case MEDIA_REQ_CMD_DELETE:
-		media_device_request_delete(mdev, req);
-		ret = 0;
+		ret = media_device_request_delete(mdev, req);
 		break;
 
 	case MEDIA_REQ_CMD_APPLY:
