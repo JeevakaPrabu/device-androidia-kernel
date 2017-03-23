@@ -38,7 +38,8 @@ struct media_device;
 enum media_device_request_state {
 	MEDIA_DEVICE_REQUEST_STATE_IDLE,
 	MEDIA_DEVICE_REQUEST_STATE_QUEUED,
-	MEDIA_DEVICE_REQUEST_STATE_DELETED
+	MEDIA_DEVICE_REQUEST_STATE_DELETED,
+	MEDIA_DEVICE_REQUEST_STATE_COMPLETE,
 };
 
 /**
@@ -498,7 +499,8 @@ struct media_device_request *
 media_device_request_find(struct media_device *mdev, u16 reqid);
 void media_device_request_get(struct media_device_request *req);
 void media_device_request_put(struct media_device_request *req);
-
+void media_device_request_complete(struct media_device *mdev,
+				   struct media_device_request *req);
 #else
 static inline int media_device_register(struct media_device *mdev)
 {
