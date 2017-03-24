@@ -2,6 +2,8 @@
 # Makefile for the video capture/playback device drivers.
 #
 
+obj-$(CONFIG_VIDEO_INTEL_IPU4) += intel-ipu4/
+
 obj-$(CONFIG_VIDEO_M32R_AR_M64278) += arv.o
 
 obj-$(CONFIG_VIDEO_VIA_CAMERA) += via-camera.o
@@ -56,6 +58,7 @@ obj-y	+= omap/
 obj-$(CONFIG_VIDEO_AM437X_VPFE)		+= am437x/
 
 obj-$(CONFIG_VIDEO_XILINX)		+= xilinx/
+obj-$(CONFIG_VIDEO_IRIS)		+= video-iris.o
 
 obj-$(CONFIG_VIDEO_RCAR_VIN)		+= rcar-vin/
 

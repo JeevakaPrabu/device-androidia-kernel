@@ -188,8 +188,6 @@ static int smiapp_read_frame_fmt(struct smiapp_sensor *sensor)
 		embedded_end = 0;
 	}
 
-	sensor->image_start = image_start;
-
 	dev_dbg(&client->dev, "embedded data from lines %d to %d\n",
 		embedded_start, embedded_end);
 	dev_dbg(&client->dev, "image data starts at line %d\n", image_start);
