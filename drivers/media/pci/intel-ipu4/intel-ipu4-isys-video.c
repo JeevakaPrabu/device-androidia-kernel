@@ -202,7 +202,7 @@ static int video_open(struct file *file)
 	if (rval)
 		goto out_power_down;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 	rval = intel_ipu4_pipeline_pm_use(&av->vdev.entity, 1);
 #else
 	rval = v4l2_pipeline_pm_use(&av->vdev.entity, 1);
@@ -284,7 +284,7 @@ out_lib_init:
 out_intel_ipu4_pipeline_pm_use:
 	isys->video_opened--;
 	mutex_unlock(&isys->mutex);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 	intel_ipu4_pipeline_pm_use(&av->vdev.entity, 0);
 #else
 	v4l2_pipeline_pm_use(&av->vdev.entity, 0);
@@ -320,7 +320,7 @@ static int video_release(struct file *file)
 
 	mutex_unlock(&av->isys->mutex);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 	intel_ipu4_pipeline_pm_use(&av->vdev.entity, 0);
 #else
 	v4l2_pipeline_pm_use(&av->vdev.entity, 0);

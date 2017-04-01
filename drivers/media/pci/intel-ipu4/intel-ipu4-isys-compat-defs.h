@@ -17,7 +17,7 @@
 #ifndef INTEL_IPU4_ISYS_COMPAT_DEFS_H
 #define INTEL_IPU4_ISYS_COMPAT_DEFS_H
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 int intel_ipu4_pipeline_pm_use(struct media_entity *entity, int use);
 #endif
 int intel_ipu4_isys_isr_run(void *ptr);

@@ -164,7 +164,7 @@ const struct intel_ipu4_isys_fw_ctrl *intel_ipu4_isys_get_api_ops(void)
 	return api_ops;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 /*
  * BEGIN adapted code from drivers/media/platform/omap3isp/isp.c.
  * FIXME: This (in terms of functionality if not code) should be most
@@ -189,7 +189,11 @@ static int intel_ipu4_pipeline_pm_use_count(struct media_pad *pad)
 	media_entity_graph_walk_start(&graph, pad);
 
 	while ((entity = media_entity_graph_walk_next(&graph))) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+		if (is_media_entity_v4l2_video_device(entity))
+#else
 		if (is_media_entity_v4l2_io(entity))
+#endif
 			use += entity->use_count;
 	}
 
@@ -262,7 +266,11 @@ static int intel_ipu4_pipeline_pm_power(struct media_entity *entity,
 	media_entity_graph_walk_start(&graph, &entity->pads[0]);
 
 	while (!ret && (entity = media_entity_graph_walk_next(&graph)))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+		if (is_media_entity_v4l2_subdev(entity))
+#else
 		if (!is_media_entity_v4l2_io(entity))
+#endif
 			ret = intel_ipu4_pipeline_pm_power_one(entity, change);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
@@ -278,7 +286,11 @@ static int intel_ipu4_pipeline_pm_power(struct media_entity *entity,
 
 	while ((first = media_entity_graph_walk_next(&graph))
 	       && first != entity)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+		if (is_media_entity_v4l2_subdev(entity))
+#else
 		if (!is_media_entity_v4l2_io(first))
+#endif
 			intel_ipu4_pipeline_pm_power_one(first, -change);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
@@ -1029,7 +1041,7 @@ static int isys_register_devices(struct intel_ipu4_isys *isys)
 #ifdef MEDIA_IOC_REQUEST_CMD
 	isys->media_dev.ops = &isys_mdev_ops;
 #else /* ! MEDIA_IOC_REQUEST_CMD */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if 1 /*LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)*/
 	isys->media_dev.link_notify = intel_ipu4_pipeline_link_notify,
 #else
 	isys->media_dev.link_notify = v4l2_pipeline_link_notify,
