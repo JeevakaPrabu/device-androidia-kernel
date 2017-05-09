@@ -41,7 +41,7 @@
 #include "intel-ipu4-regs.h"
 #include "intel-ipu5-regs.h"
 #define CREATE_TRACE_POINTS
-#include "intel-ipu4-trace-event.h"
+#include "intel-ipu4-psys-trace-event.h"
 #include "intel-ipu4-isys-fw-msgs.h"
 #include "intel-ipu4-fw-com.h"
 
@@ -906,7 +906,7 @@ static void intel_ipu4_psys_kcmd_complete(struct intel_ipu4_psys *psys,
 					  struct intel_ipu4_psys_kcmd *kcmd,
 					  int error)
 {
-	trace_ipu4_pg_kcmd(__func__, kcmd->id, kcmd->issue_id, kcmd->priority,
+	trace_ipu4_psys_pg_kcmd(__func__, kcmd->id, kcmd->issue_id, kcmd->priority,
 		intel_ipu4_psys_abi_pg_get_id(kcmd),
 		intel_ipu4_psys_abi_pg_load_cycles(kcmd),
 		intel_ipu4_psys_abi_pg_init_cycles(kcmd),
@@ -1066,7 +1066,7 @@ static int intel_ipu4_psys_kcmd_start(struct intel_ipu4_psys *psys,
 		goto error;
 	}
 
-	trace_ipu4_pg_kcmd(__func__, kcmd->id, kcmd->issue_id, kcmd->priority,
+	trace_ipu4_psys_pg_kcmd(__func__, kcmd->id, kcmd->issue_id, kcmd->priority,
 		intel_ipu4_psys_abi_pg_get_id(kcmd),
 		intel_ipu4_psys_abi_pg_load_cycles(kcmd),
 		intel_ipu4_psys_abi_pg_init_cycles(kcmd),

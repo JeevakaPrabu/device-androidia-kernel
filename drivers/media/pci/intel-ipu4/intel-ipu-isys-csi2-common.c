@@ -30,7 +30,7 @@
 #include "intel-ipu4-isys-video.h"
 
 #define CREATE_TRACE_POINTS
-#include "intel-ipu4-trace-event.h"
+#include "intel-ipu4-isys-trace-event.h"
 
 static const uint32_t csi2_supported_codes_pad_sink[] = {
 	MEDIA_BUS_FMT_RGB565_1X16,
@@ -843,7 +843,7 @@ void intel_ipu_isys_csi2_sof_event(struct intel_ipu4_isys_csi2 *csi2,
 	ev.id = ip->stream_id;
 	spin_unlock_irqrestore(&csi2->isys->lock, flags);
 
-	trace_ipu4_sof_seqid(ev.u.frame_sync.frame_sequence, csi2->index, vc);
+	trace_ipu4_isys_sof_seqid(ev.u.frame_sync.frame_sequence, csi2->index, vc);
 	v4l2_event_queue(vdev, &ev);
 
 	dev_dbg(&csi2->isys->adev->dev,
