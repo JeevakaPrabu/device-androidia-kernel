@@ -725,141 +725,33 @@ static const struct intel_ipu4_buttress_ctrl psys_buttress_ctrl_ipu5 = {
 static const char intel_ipu4_cpd_filename[] = INTEL_IPU4_CPD_FIRMWARE_B0;
 static const char intel_ipu5_cpd_filename[] = INTEL_IPU5_CPD_FIRMWARE_A0;
 
-static int intel_ipu4_pci_probe(struct pci_dev *pdev,
-			     const struct pci_device_id *id)
+static int request_firmware_complete(struct pci_dev *pdev)
 {
-	struct intel_ipu4_device *isp;
-	phys_addr_t phys;
-	void __iomem * const *iomap;
+	struct intel_ipu4_device *isp = pci_get_drvdata(pdev);
 	void __iomem *isys_base = NULL;
 	void __iomem *psys_base = NULL;
 	const struct intel_ipu4_buttress_ctrl *isys_buttress_ctrl;
 	const struct intel_ipu4_buttress_ctrl *psys_buttress_ctrl;
 	const struct intel_ipu4_isys_internal_pdata *isys_ipdata;
 	const struct intel_ipu4_psys_internal_pdata *psys_ipdata;
-	unsigned int dma_mask = 39;
-	unsigned int fpga_bar_mask = 0;
 	int rval;
-
-	trace_printk("B|%d|TMWK\n", current->pid);
-
-	isp = devm_kzalloc(&pdev->dev, sizeof(*isp), GFP_KERNEL);
-	if (!isp) {
-		dev_err(&pdev->dev, "Failed to alloc CI ISP structure\n");
-		trace_printk("E|TMWK\n");
-		return -ENOMEM;
-	}
-	isp->pdev = pdev;
-	INIT_LIST_HEAD(&isp->devices);
-
-	rval = pcim_enable_device(pdev);
-	if (rval) {
-		dev_err(&pdev->dev, "Failed to enable CI ISP device (%d)\n",
-			rval);
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-
-	dev_info(&pdev->dev, "Device 0x%x (rev: 0x%x)\n",
-			      pdev->device, pdev->revision);
-
-	fpga_bar_mask = intel_ipu5_fpga_reset_prepare(isp);
-
-	phys = pci_resource_start(pdev, INTEL_IPU4_PCI_BAR);
-
-	rval = pcim_iomap_regions(pdev,
-		1 << INTEL_IPU4_PCI_BAR | fpga_bar_mask, pci_name(pdev));
-	if (rval) {
-		dev_err(&pdev->dev, "Failed to I/O memory remapping (%d)\n",
-			rval);
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-	dev_info(&pdev->dev, "physical base address 0x%llx\n", phys);
-
-	iomap = pcim_iomap_table(pdev);
-	if (!iomap) {
-		dev_err(&pdev->dev, "Failed to iomap table (%d)\n", rval);
-		trace_printk("E|TMWK\n");
-		return -ENODEV;
-	}
-
-	isp->base = iomap[INTEL_IPU4_PCI_BAR];
-	dev_info(&pdev->dev, "mapped as: 0x%p\n", isp->base);
-	if (fpga_bar_mask) {
-		isp->base2 = iomap[IPU5_BAR_FOR_BRIDGE];
-		dev_info(&pdev->dev, "fpga bar mapped as: 0x%p\n", isp->base2);
-	}
-
-	pci_set_drvdata(pdev, isp);
-
-	pci_set_master(pdev);
 
 	if (is_intel_ipu4_hw_bxt_b0(isp)) {
 		isys_ipdata = &isys_ipdata_ipu4;
 		psys_ipdata = &psys_ipdata_ipu4;
 		isys_buttress_ctrl = &isys_buttress_ctrl_ipu4;
 		psys_buttress_ctrl = &psys_buttress_ctrl_ipu4;
-		isp->cpd_fw_name = intel_ipu4_cpd_filename;
 	} else if (is_intel_ipu5_hw_a0(isp)) {
 		isys_ipdata = &isys_ipdata_ipu5;
 		psys_ipdata = &psys_ipdata_ipu5;
 		isys_buttress_ctrl = &isys_buttress_ctrl_ipu5;
 		psys_buttress_ctrl = &psys_buttress_ctrl_ipu5;
-		isp->cpd_fw_name = intel_ipu5_cpd_filename;
-	} else {
-		dev_err(&pdev->dev, "Not supported device\n");
-		trace_printk("E|TMWK\n");
-		return -EINVAL;
 	}
-
-	if (is_intel_ipu_hw_fpga(isp))
-		dma_mask = 32;
 
 	isys_base = isp->base + isys_ipdata->hw_variant.offset;
 	psys_base = isp->base + psys_ipdata->hw_variant.offset;
 
-	rval = pci_set_dma_mask(pdev, DMA_BIT_MASK(dma_mask));
-	if (!rval)
-		rval = pci_set_consistent_dma_mask(pdev,
-						   DMA_BIT_MASK(dma_mask));
-	if (rval) {
-		dev_err(&pdev->dev, "Failed to set DMA mask (%d)\n", rval);
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-
-	rval = intel_ipu4_pci_config_setup(pdev);
-	if (rval) {
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-
-	rval = devm_request_threaded_irq(&pdev->dev, pdev->irq,
-					 intel_ipu4_buttress_isr,
-					 intel_ipu4_buttress_isr_threaded,
-					 IRQF_SHARED, INTEL_IPU4_NAME, isp);
-	if (rval) {
-		dev_err(&pdev->dev, "Requesting irq failed(%d)\n",
-			rval);
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-
-	rval = intel_ipu4_buttress_init(isp);
-	if (rval) {
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
-
-	dev_info(&pdev->dev, "cpd file name: %s\n", isp->cpd_fw_name);
-
-	rval = request_firmware(&isp->cpd_fw, isp->cpd_fw_name, &pdev->dev);
-	if (rval) {
-		dev_err(&isp->pdev->dev, "Requesting signed firmware failed\n");
-		trace_printk("E|TMWK\n");
-		return rval;
-	}
+	dev_info(&isp->pdev->dev, "cpd file name: %s\n", isp->cpd_fw_name);
 
 	rval = intel_ipu4_cpd_validate_cpd_file(isp, isp->cpd_fw->data,
 						isp->cpd_fw->size);
@@ -931,7 +823,7 @@ static int intel_ipu4_pci_probe(struct pci_dev *pdev,
 			1, INTEL_IPU4_MMU_TYPE_INTEL_IPU4, PSYS_MMID);
 		rval = PTR_ERR(isp->psys_iommu);
 		if (IS_ERR(isp->psys_iommu)) {
-			dev_err(&pdev->dev, "can't create psys iommu device\n");
+			dev_err(&isp->pdev->dev, "can't create psys iommu device\n");
 			goto out_intel_ipu4_bus_del_devices;
 		}
 
@@ -966,6 +858,158 @@ out_intel_ipu4_bus_del_devices:
 	intel_ipu4_buttress_exit(isp);
 	release_firmware(isp->cpd_fw);
 
+	trace_printk("E|TMWK\n");
+	return rval;
+}
+
+static void firmware_request_cb(const struct firmware *firmware, void *context)
+{
+	struct pci_dev *pdev = context;
+	struct intel_ipu4_device *isp = pci_get_drvdata(pdev);
+
+	if (!firmware) {
+		dev_err(&pdev->dev, "firmware not loaded");
+		return;
+	}
+
+	if (!isp) {
+		dev_err(&pdev->dev, "driver data invalid");
+		return;
+	}
+
+	isp->cpd_fw = firmware;
+	if (request_firmware_complete(pdev)) {
+		dev_err(&pdev->dev, "request_firmware_complete failed");
+	}
+}
+
+
+static int intel_ipu4_pci_probe(struct pci_dev *pdev,
+			     const struct pci_device_id *id)
+{
+	struct intel_ipu4_device *isp;
+	phys_addr_t phys;
+	void __iomem * const *iomap;
+	unsigned int dma_mask = 39;
+	unsigned int fpga_bar_mask = 0;
+	int rval;
+
+	trace_printk("B|%d|TMWK\n", current->pid);
+
+	isp = devm_kzalloc(&pdev->dev, sizeof(*isp), GFP_KERNEL);
+	if (!isp) {
+		dev_err(&pdev->dev, "Failed to alloc CI ISP structure\n");
+		trace_printk("E|TMWK\n");
+		return -ENOMEM;
+	}
+	isp->pdev = pdev;
+	INIT_LIST_HEAD(&isp->devices);
+
+	rval = pcim_enable_device(pdev);
+	if (rval) {
+		dev_err(&pdev->dev, "Failed to enable CI ISP device (%d)\n",
+			rval);
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+
+	dev_info(&pdev->dev, "Device 0x%x (rev: 0x%x)\n",
+			      pdev->device, pdev->revision);
+
+	fpga_bar_mask = intel_ipu5_fpga_reset_prepare(isp);
+
+	phys = pci_resource_start(pdev, INTEL_IPU4_PCI_BAR);
+
+	rval = pcim_iomap_regions(pdev,
+		1 << INTEL_IPU4_PCI_BAR | fpga_bar_mask, pci_name(pdev));
+	if (rval) {
+		dev_err(&pdev->dev, "Failed to I/O memory remapping (%d)\n",
+			rval);
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+	dev_info(&pdev->dev, "physical base address 0x%llx\n", phys);
+
+	iomap = pcim_iomap_table(pdev);
+	if (!iomap) {
+		dev_err(&pdev->dev, "Failed to iomap table (%d)\n", rval);
+		trace_printk("E|TMWK\n");
+		return -ENODEV;
+	}
+
+	isp->base = iomap[INTEL_IPU4_PCI_BAR];
+	dev_info(&pdev->dev, "mapped as: 0x%p\n", isp->base);
+	if (fpga_bar_mask) {
+		isp->base2 = iomap[IPU5_BAR_FOR_BRIDGE];
+		dev_info(&pdev->dev, "fpga bar mapped as: 0x%p\n", isp->base2);
+	}
+
+	pci_set_drvdata(pdev, isp);
+
+	pci_set_master(pdev);
+
+	if (is_intel_ipu4_hw_bxt_b0(isp)) {
+		isp->cpd_fw_name = intel_ipu4_cpd_filename;
+	} else if (is_intel_ipu5_hw_a0(isp)) {
+		isp->cpd_fw_name = intel_ipu5_cpd_filename;
+	} else {
+		dev_err(&pdev->dev, "Not supported device\n");
+		trace_printk("E|TMWK\n");
+		return -EINVAL;
+	}
+
+	if (is_intel_ipu_hw_fpga(isp))
+		dma_mask = 32;
+
+	rval = pci_set_dma_mask(pdev, DMA_BIT_MASK(dma_mask));
+	if (!rval)
+		rval = pci_set_consistent_dma_mask(pdev,
+						   DMA_BIT_MASK(dma_mask));
+	if (rval) {
+		dev_err(&pdev->dev, "Failed to set DMA mask (%d)\n", rval);
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+
+	rval = intel_ipu4_pci_config_setup(pdev);
+	if (rval) {
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+
+	rval = devm_request_threaded_irq(&pdev->dev, pdev->irq,
+					 intel_ipu4_buttress_isr,
+					 intel_ipu4_buttress_isr_threaded,
+					 IRQF_SHARED, INTEL_IPU4_NAME, isp);
+	if (rval) {
+		dev_err(&pdev->dev, "Requesting irq failed(%d)\n",
+			rval);
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+
+	rval = intel_ipu4_buttress_init(isp);
+	if (rval) {
+		trace_printk("E|TMWK\n");
+		return rval;
+	}
+
+	dev_info(&pdev->dev, "cpd file name: %s\n", isp->cpd_fw_name);
+
+	if (IS_BUILTIN(CONFIG_VIDEO_INTEL_IPU4)) {
+		rval = request_firmware_nowait(THIS_MODULE, true, isp->cpd_fw_name,
+				&pdev->dev, GFP_KERNEL, pdev, firmware_request_cb);
+		return 0;
+	} else {
+		rval = request_firmware(&isp->cpd_fw, isp->cpd_fw_name, &pdev->dev);
+		if (rval) {
+			dev_err(&pdev->dev, "Requesting signed firmware failed\n");
+			trace_printk("E|TMWK\n");
+			return rval;
+		}
+	}
+
+	rval = request_firmware_complete(pdev);
 	trace_printk("E|TMWK\n");
 	return rval;
 }
